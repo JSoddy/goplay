@@ -1,0 +1,196 @@
+﻿Chosen Ciphertext Attacks Against Protocols
+Based on the RSA Encryption Standard
+PKCS
+Daniel Bleichenbacher
+Bell Laboratories
+700 Mountain Ave.
+Murray Hill, NJ 07974
+E-maih bleichen@research.bell-labs, com
+Abstract. This paper introduces a new adaptive chosen ciphertext attack
+against certain protocols based on RSA. We show that an RSA
+private-key operation can be performed if the attacker has access to an
+oracle that, for any chosen ciphertext, returns only one bit telling whether
+the ciphertext corresponds to some unknown block of data encrypted using
+PKCS ~1. An example of a protocol susceptible to our attack is SSL
+V.3.0.
+Keywords: chosen ciphertext a~tack, RSA, PKCS, SSL
+1 Overview
+In this paper, we analyze the following situation. Let n, e be an RSA public key,
+and let d be the corresponding secret key. Assume that an attacker has access to
+an oracle that, for any chosen ciphertext c, indicates whether the corresponding
+plaintext c ~ rood n has the correct format according to the RSA encryption
+standard PKCS #1.
+We show how to use this oracle to decrypt or sign a message. The attacker
+carefully prepares ciphertexts that are sent to the oracle. Combining the returns
+from the oracle, the attacker gradually gains information on c d. The chosen ciphertexts
+are based on previous outcomes of the oracle. Thus, this technique is
+an example of an adaptive chosen-ciphertext attack. Usually, a chosen ciphertext
+attack is based on the theoretical assumption that the attacker has access to a
+decryption device that returns the complete decryption for a chosen ciphertext.
+Hence, if a public-key cryptosystem is susceptible to a chosen-ciphertext attack,
+that often is considered to be only a theoretical weakness. However, the attack
+shown in this paper is practical, because it is easy to get the necessary information
+corresponding to the oracle reply. The attack can be carried out if, for
+example, the attacker has access to a server that accepts encrypted messages
+and returns an error message depending on whether the decrypted message is
+PKCS conforming.
+This paper is organized as follows. We describe the RSA encryption standard
+PKCS #1 in Section 2. In Section 3, we describe and analyze our chosenciphertext
+attack. Different situations in which this attack can be carried out are listed in Section 4. We then analyze the vulnerability of SSL to our attack in
+Section 5. In Section 6, we report experiments with the technique. In Section 7,
+we conclude by offering recommendations.
+2 PKCS ~1
+In this section, we describe briefly the RSA encryption standard PKCS #1; refer
+to [11] for details. Currently, there are three block formats: Block types 0 and 1
+are reserved for digital signatures, and block type 2 is used for encryption. We
+describe only block type 2, because it is relevant for this paper.
+Fig. 1. PKCS #1 block format for encryption. The first two bytes in this format are
+constant. The length of the padding block can vary.
+Let n, e be an RSA public key, and let p, q, d be the corresponding secret key
+(i.e, n = pq and d ~ e -1 (rood ~(n))). Moreover, let k be the byte length of n.
+Hence, we have 2 s(k-1) < n < 28k. A data block D, consisting of IDI bytes, is
+encrypted as follows. First, a padding string PS, consisting of k-3-IDI nonzero
+bytes, is generated pseudo-randomly. Here, IDt must not exceed k - 11; in other
+words, the byte length of PS is a least 8. Now, the encryption block EB =
+O0110211PSIIOOIID is formed (Figure 1), is converted into an integer x, and is
+encrypted with RSA, giving the ciphertext c - x e (mod n). The representation
+of the ciphertext is not important for this paper.
+We are, however, interested in how the receiver parses a ciphertext. First, he
+gets an integer x ~ by decrypting the ciphertext with his private key. Then, he
+converts x ~ into an encryption block EB ~. Now he looks for the first zero byte,
+which indicates the ending of the padding string PS and the start of the data
+block D. The following definition specifies when this parsing process is successful.
+Definition 1. An encryption block EB consisting of k bytes - that is,
+EB -- EBIII...IIEBk
+is called PKCS conforming - if it satisfies the requirements of block type 2 in
+PKCS #1. In particular, EB must satisfy the following conditions:
+- EB1 = 00.
+- EB2 = 02.
+- EBs through EBlo are nonzero.
+- At least one of the bytes EBn through EBk is 00. We also call a ciphertext c PKCS conforming if its decryption is PKCS conforming.
+
+Note that the definition of con/orming does not include possible integrity
+checks. We show in Section 3 that it should not be possible for an attacker to
+decide whether a chosen ciphertext is PKCS conforming. It is sometimes possible
+for an attacker to do so even if the data block contains further integrity checks.
+3 Chosen-Ciphertext Attacks
+In a chosen-ciphertext attack, the attacker selects the ciphertext, sends it to the
+victim, and is given in return the corresponding plaintext or some part thereof. A
+chosen-plaintext attack is called adaptive if the attacker can chose the ciphertexts
+depending on previous outcomes of the attack.
+It is well known that plain RSA is susceptible to a chosen-ciphertext attack
+[5]. An attacker who wishes to find the decryption m ~ c d (mod n) of
+a ciphertext c can chose a random integer s and ask for the decryption of the
+innocent-looking message c ~ -- sec mod n. From the answer m ~ - (c~) d, it is easy
+to recover the original message, because m -- m~s -1 (rood n).
+Another well-known result is that the least significant bit of RSA encryption
+is as secure as the whole message [8] (see also [1]). In particular, there exists an
+algorithm that can decrypt a ciphertext if there exists another algorithm that
+can predict the least significant bit of a message given only the corresponding
+ciphertext and the public key. H~stad and N~slund recently extended this result
+to show that all individual RSA bits are secure [9].
+Hence, it is not necessary for an attacker to learn the complete decrypted
+message in a chosen-ciphertext attack: Single bits per chosen ciphertext may be
+sufficient.
+The result reported in this paper is similar. We assume that the attacker has
+access to an oracle that, for every ciphertext, returns whether the corresponding
+plaintext is PKCS conforming. We show that we can use this oracle to compute
+c d (mod n) for any chosen integer c. Theoretically, we can use H~st~l's and
+N~lund's algorithm [9] to find c. In this paper, we describe a different algorithm
+that has as its goal to minimize the number of chosen ciphertexts; thus, we show
+the practicality of the attack. That is, we are not trying to generalize the attack;
+rather, we would like to take advantage of specific properties of PKCS #1. In
+particular, the algorithm relies on the facts that the first two bytes of the PKCS
+#1 format axe constant, and that we know these two bytes with certainty when
+a ciphertext is accepted. Also, we use heuristic arguments in our the analysis of
+the algorithm to approximate the number of expected chosen ciphertexts, rather
+than finding an upper bound.
+3.1 Description of the Attack
+First, we give a short overview over the attack; then, we describe the attack in
+detail. Assume that the attacker wants to find m -= c a (rood n), where c is an
+arbitrary integer. Basically, the attacker chooses integers s, computes
+e I-cs e (modn),
+and sends c ~ to the oracle. If the oracle says that c ~ is PKCS conforming, then
+the attacker knows that the first two bytes of ms are 00 and 02. For convenience,
+let
+B = 2 s(k-2).
+Recall that k is the length of n in bytes. Hence, that ms is PKCS conforming
+implies that
+2B < ms mod n < 3B.
+By collecting several such pieces of information, we can eventually derive m.
+Typically, 220 chosen ciphertexts will be sufficient, but this number varies widely
+depending on numerous implementation details.
+The attack can be divided into three phases. In the first phase, the message
+is blinded, giving a ciphertext co that corresponds to an unknown message too.
+In the second phase, the attacker tries to find small values si for which the ciphertext
+co(si) e mod n is PKCS conforming. For each successful value for si, the
+attacker computes, using previous knowledge about m0, a set of intervals that
+must contain m0. We elaborate this process later. The third phase starts when
+only one interval remains. Then, the attacker has sufficient information about
+m0 to choose st such that c0(si) e mod n is much more likely to be PKCS conforming
+than is a randomly chosen message. The size of st is increased gradually,
+narrowing the possible range of mo until only one possible value remains.
+Now we describe this attack in detail. The variable Ms will always be a set
+of (closed) intervals that is computed after a successful si has been found, such
+that m0 is contained in one of the intervals of Ms.
+Step 1: Blinding. Given an integer c, choose different random integers so; then
+check, by accessing the oracle, whether C(So) e mod n is PKCS conforming.
+For the first successful value So, set
+Co +-- c(so) e mod n
+Mot-- {[2B, 3B- 1]}
+i +-- 1.
+Step 2: Searching for PKCS conforming messages.
+Step 2.a" Starting the search. If i = 1, then search for the smallest positive
+integer sl > n/(3B), such that the ciphertext co(sx) e rood n is PKCS
+conforming.
+Step 2.b: Searching with more than one interval left. Otherwise, if i >
+1 and the number of intervals in Mi-1 is at least 2, then search for the
+smallest integer st > si-1, such that the ciphertext co(si) e rood n is PKCS
+conforming. Step 2.c: Searching with one interval left. Otherwise, ifMi-1 contains exactly
+one interval (i.e., Mi-1 = {[a, hi)), then choose small integer values
+ri, si such that
+bsi-1 - 2B
+r~ > 2 (1)
+n
+and
+2B + rin 3B + rin
+< si < --, (2) b - a
+until the ciphertext co(si) e mod n is PKCS conforming.
+Step 3: Narrowing the set of solutions. After si has been found, the set
+Mi is computed as
+(a,b,r)
+for all [a, b] E M~-I and asi - 3B + 1 _ _
+n
+<r<
+bsi -- 2B
+n
+Step 4: Computing the solution. If Mi contains only one interval of length
+1 (i.e., Mi = {[a, a]}), then set m +-- a(s0) -1 mod n, and return m as solution
+of m - c d (mod n). Otherwise, set i <-- i + 1 and go to step 2.
+Remarks. Step 1 can be skipped if c is already PKCS conforming (i.e., when
+c is an encrypted message). In that case, we set So +- 1. However, step 1 is
+always necessary for computing a signature, even if we do not wish to get a
+blind signature.
+In Step 2.a, we start with sl = rn/(3B)], because, for smaller values rnosl
+is never PKCS conforming.
+We use condition (1) because we want to divide the remaining interval in
+each iteration roughly in half.
+We can often improve the attack by using more information. For example,
+we have not used the fact that any PKCS-conforming message mosi contains
+at least one zero byte. Moreover, if the attack is performed in a client-server
+environment, where both parties use the message mosi to generate session keys,
+we might be able to find this message by exhaustive search if we already knew
+a sufficient portion of it.
+3.2 Analysis of the Attack
+We now analyze the correctness of the attack and approximate the complexity
+of, and, in particular, the number of oracle accesses necessary for, this attack.
+We must make a few heuristic assumptions; hence, we cannot give a rigorous
+proof of our result.
+First, we approximate the probability Pr(P) that a randomly chosen integer
+0 < m < n is PKCS conforming. Let Pr(A) = -~ be the probability that, for a randomly chosen integer, the first two bytes are 00 and 02, respectively. Since
+we have 216B > n > 2SB, it follows that
+2 -t6 < Pr(A) < 2 -8.
+The RSA modulus is usually chosen to be a multiple of 8; hence, Pr(A) will
+usually be close to 2 -16. The probability that the padding block PS contains at
+least 8 non-zero bytes followed by a zero byte is
+Pr(P]A) = \~-~j 

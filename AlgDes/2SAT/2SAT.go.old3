@@ -1,0 +1,199 @@
+package main 
+
+import (
+	"fmt"
+	"UJSPackage/file"
+)
+
+type variable struct {
+	index			int
+	value			bool
+	locked			bool
+	// consSide matches up with constraints. Each bool in slice is 
+	// true if the matching constraint is on the right and false
+	// if that constraint is on lthe left
+	consSide		[]bool
+	constraints		[]*constraint
+}
+
+type constraint struct {
+	index			int
+	leftVal			bool
+	leftPoint		*variable
+	leftUnsat		bool
+	rightVal		bool
+	rightPoint		*variable
+	rightUnsat		bool
+}
+
+type TwoSAT struct {
+	constraints		[]constraint
+	variables		[]variable
+}
+
+var fileTokens = []string{"D:\\James\\Temp\\2sat2.txt",
+							"D:\\James\\Temp\\2sat3.txt",
+							"D:\\James\\Temp\\2sat4.txt",
+							"D:\\James\\Temp\\2sat5.txt",
+							"D:\\James\\Temp\\2sat6.txt",}
+//							"D:\\James\\Temp\\2sattest6.txt",
+//							"D:\\James\\Temp\\2sattest7.txt",
+//							"D:\\James\\Temp\\2sat1.txt",}
+func main() {
+	problems 	:= make([]TwoSAT, len(fileTokens))
+	results		:= make([]bool, len(fileTokens))
+	//read problem from file
+	for i, v := range fileTokens {
+		fmt.Println("Reading problem #", i + 1)
+		problems[i] = readProblem(v)
+	}
+	//run 2SAT problem
+	for i, v := range problems {
+		fmt.Println("Solving problem #", i + 1)
+		results[i] = backSAT(v, []int{0})
+		if results[i] {
+			fmt.Println("Solvable")
+		}
+	}
+	//output results
+	fmt.Println("Done...")
+	fmt.Println(results)
+}
+
+//!!!
+func backSAT(problem TwoSAT, queue []int) bool {
+	//fmt.Println(queue)
+	if len(queue) == 0 {
+		next := findUnlocked(problem.variables)
+		if next < len(problem.variables) {
+			return backSAT(problem, []int{next})
+		} else {
+			return true
+		}
+	} else {
+		this 			:= problem.variables[queue[0]]
+		if this.locked {
+			//fmt.Println("Okay.")
+			return backSAT(problem, append([]int{}, queue[1:]...))
+		} else {
+			problem.variables[queue[0]].locked		= true
+			this, changed, plausible := setValue(this, true)
+			if plausible {
+				//fmt.Println("First: ", queue)
+				//fmt.Println("Changed: ", queue)
+				plausible = backSAT(problem, append(changed, queue[1:]...))
+			}
+			if !plausible {
+				this, changed, plausible = setValue(this, false)
+				if plausible {
+					//fmt.Println("Second: ", queue)
+					plausible = backSAT(problem, append(changed, queue[1:]...))
+				}
+			}
+			//fmt.Println("Well I'll be...")
+			unSet(this)
+			this.locked		= false
+			return			plausible
+		}
+	}
+}
+
+func findUnlocked(variables []variable) int {
+	if len(variables) == 0 {
+		return 1000
+	} else {
+		if !variables[0].locked {
+			return 0
+		} else {
+			return 1 + findUnlocked(variables[1:])
+		}
+	}
+}
+
+func setValue(v variable, value bool) (variable, []int, bool) {
+	unSet(v)
+	opposite 	:= make([]int, 0, 5)
+	plausible	:= true
+	v.value 	= value
+	for i, w := range v.constraints {
+		if v.consSide[i] {
+			if w.rightVal != v.value {
+				w.rightUnsat = true
+				opposite = append(opposite, w.leftPoint.index)
+			}
+		} else {
+			if w.leftVal != v.value {
+				w.leftUnsat = true
+				opposite = append(opposite, w.rightPoint.index)
+			}
+		}
+		plausible = plausible && !(w.leftUnsat && w.rightUnsat)
+	}
+	//fmt.Println("Opposite: ", opposite)
+	return v, opposite, plausible
+}
+
+func unsatisfiable(v variable) bool {
+	unsat 		:= false
+	for _, w := range v.constraints {
+		if w.leftUnsat && w.rightUnsat {
+			unsat = true
+		}
+	}
+	return unsat
+}
+
+func unSet(v variable) {
+	for i, w := range v.constraints {
+		if v.consSide[i] {
+			w.rightUnsat = false
+		} else {
+			w.leftUnsat = false
+		}
+	}
+}
+
+func readProblem(fileName string) TwoSAT {
+	intLines 	:= file.IntLines(fileName)
+	counts		:= intLines[0][0]
+	intLines 	=  intLines[1:]
+	constraints	:= make([]constraint, counts)
+	variables	:= make([]variable, counts)
+
+	for i, v := range intLines {
+		
+		//create the associated constraint
+		if v[0] > 0 {
+			constraints[i].leftVal = true
+		}
+		constraints[i].leftPoint = &variables[abs(v[0])-1]
+		if v[1] > 0 {
+			constraints[i].rightVal = true
+		}
+		constraints[i].rightPoint = &(variables[abs(v[1])-1])
+
+		//add the constraint to the set of pointers for its associated variables
+		variables[abs(v[0])-1].constraints = 
+						append(variables[abs(v[0])-1].constraints, &constraints[i])
+		variables[abs(v[0])-1].consSide = 
+						append(variables[abs(v[0])-1].consSide, false)
+		variables[abs(v[1])-1].constraints = 
+						append(variables[abs(v[1])-1].constraints, &constraints[i])
+		variables[abs(v[1])-1].consSide = 
+						append(variables[abs(v[1])-1].consSide, true)
+
+		//just set the index for the variables for bookkeeping
+		constraints[i].index = i
+		variables[i].index = i
+
+	}
+	return TwoSAT{constraints: constraints, variables: variables}
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	} else {
+		return n
+	}
+}

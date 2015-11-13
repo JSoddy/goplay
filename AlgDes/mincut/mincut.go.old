@@ -1,0 +1,240 @@
+package main
+
+import (
+	"fmt"
+	//"math"
+	"math/rand"
+	"time"
+	"io/ioutil"
+	"strings"
+	"strconv"
+)
+
+// type vertex is struct {pos int, edges *[]edge}
+type vertex struct {
+	pos int
+	edges []*edge
+}
+// type edge is struct {first *vertex, second *vertex}
+type edge struct {
+	first *vertex
+	second *vertex
+}
+// type graph is struct {vertices []vertex, edges []edge}
+type graph struct {
+	vertices []*vertex
+	edges []*edge
+}
+
+const filename string = "D:\\James\\Downloads\\kargermincuttest.txt"
+
+func main() {
+	var currentcut, mincut, reps int
+	fmt.Println("Trace 1")
+	aa := loadgraph()
+	fmt.Println("Trace 2")
+	g := atog(aa)
+	fmt.Println("Trace 3")
+	printgraph(g)
+	mincut = contraction(g)
+	printgraph(g)
+	fmt.Println("Trace A")
+	// reps = int(math.Pow(float64(len(g.vertices)), 2) + math.Log2(float64(len(g.vertices))))
+	reps = 2
+	for i := 1; i < reps; i++ {
+		g = atog(aa)
+		currentcut = contraction(g)
+		if currentcut < mincut {
+			mincut = currentcut
+		}
+	}
+	printgraph(g)
+	fmt.Println("Minimum cut found = ", mincut)
+}
+
+// runs a contraction algorith of the graph provided. returns an integer
+//   indicating the minimum cut found from it's completion
+func contraction(g *graph) int {
+	var n int = 0
+	fmt.Println("Trace 4")
+	if len(g.edges) == 0 {
+		return n
+	}
+	seedTime := time.Now()
+	fmt.Println("Trace 5")
+	rand.Seed(int64(seedTime.Nanosecond()))
+	fmt.Println("Trace 6")
+	for len(g.vertices) > 2 {
+		printgraph(g)
+		fmt.Println("Trace 7")
+		n = rand.Intn(len(g.edges))
+		fmt.Println("Trace 8")
+        merge(g, n)
+        fmt.Println("Trace B")
+    }
+	return len(g.edges)
+}
+
+// merge the two vertices in graph g pointed to by the edge in n position
+//  all edges pointing to vertex 2 in edge should be pointed to vertex 1
+//  all self-looping edges should be removed
+//  vertex second of edge should be removed
+func merge(g *graph, n int) {
+	fmt.Println("Trace 9")
+	mergeEdge := g.edges[n]
+	fmt.Println("Trace 10")
+	mergeNode := mergeEdge.second
+	//mergeNodeID := mergeNode.pos
+	fmt.Println("Trace 11")
+	redirect(g, mergeEdge, mergeNode)
+	fmt.Println("Trace 12")
+	appendedges(g, mergeEdge.first, mergeNode)
+	fmt.Println("Trace C")
+	clearloops(g, mergeNode)
+	remnode(g, mergeNode)
+	return
+}
+
+// redirects edges in mergeNode.edges pointing to mergeNode so they point to
+//    mergeEdge.first instead
+func redirect(g *graph, mergeEdge *edge, mergeNode *vertex) {
+	j := 0
+	for g.vertices[j] != mergeNode {
+		j++
+	}
+	for i := 0; i < len(g.vertices[j].edges); i++ {
+		if g.vertices[j].edges[i].first == g.vertices[j] {
+			g.vertices[j].edges[i].first = mergeEdge.first
+		}
+		if g.vertices[j].edges[i].second == g.vertices[j] {
+			g.vertices[j].edges[i].second = mergeEdge.first
+		}
+	}
+	return
+}
+
+// identifies and removes from an array of edges, all edges whose first and second
+//	 point to the same vertex
+func clearloops(g *graph, mergeNode *vertex) {
+	var temp []*edge
+	for i := 0; i < len(g.edges); i++ {
+		if g.edges[i].first == g.edges[i].second{
+			temp = g.edges[0:i]
+			for j := i+1; j < len(g.edges); j++ {
+				temp = append(temp, g.edges[j])
+			}
+			g.edges = temp
+		}
+	}
+	k := 0
+	for g.vertices[k] != mergeNode {
+		k++
+	}
+	for i := 0; i < len(g.vertices[k].edges); i++ {
+		if g.vertices[k].edges[i].first == g.vertices[k].edges[i].second{
+			temp = g.vertices[k].edges[0:i]
+			for j := i+1; j < len(g.vertices[k].edges); j++ {
+				temp = append(temp, g.vertices[k].edges[j])
+			}
+			g.vertices[k].edges = temp
+		}
+	}
+	return
+}
+
+func appendedges(g *graph, vertex1, vertex2 *vertex) {
+	if vertex1 == vertex2 {
+		fmt.Println("Damn...")
+		return
+	}
+	j := 0
+	for g.vertices[j] != vertex1 {
+		j++
+	}
+	fmt.Println("Trace 13")
+	for i := 0; i < len(vertex2.edges); i++ {
+		//fmt.Println("Trace 14")
+		g.vertices[j].edges = append(g.vertices[j].edges, vertex2.edges[i])
+	}
+}
+
+func remnode(g *graph, mergeNode *vertex) {
+	var temp []*vertex
+	for i := 0; i < len(g.vertices); i++ {
+		if g.vertices[i] == mergeNode {
+			temp = g.vertices[0:i]
+			for j := i+1; j < len(g.vertices); j++ {
+				temp = append(temp, g.vertices[j])
+			}
+			g.vertices = temp
+		}
+	}
+}
+
+// opens file "filename" and loads its contents to an array of vertices
+//    a "graph"
+func loadgraph() [][]int {
+	b, err := ioutil.ReadFile(filename)
+    if err != nil { 
+      fmt.Println("Error:", err)
+      return nil
+    } 
+    lines := strings.Split(string(b), "\n")
+
+    arr := make([][]int, 0, len(lines))
+
+    for _, v := range lines {
+      textints := strings.Split(v, "\t")
+      subarr := make([]int, 0, len(textints))
+      for _, w := range textints {
+        n, err := strconv.Atoi(w)
+        if err != nil {
+          continue
+        }
+        subarr = append(subarr, n)
+      }
+      arr = append(arr, subarr)
+    }
+	return arr
+}
+
+func atog(aa [][]int) *graph {
+	var g *graph = new(graph)
+	for _, v := range aa {
+		g.vertices = append(g.vertices, &vertex{pos: v[0]})
+	}
+	for _, v := range aa {
+		vp1 := vertexByPos(g, v[0])
+		for i := 1; i < len(v); i++ {
+			if v[i] > v[0] {
+				vp2 := vertexByPos(g, v[i])				
+				ne := &edge{vp1, vp2}
+				g.edges = append(g.edges, ne)
+				vp1.edges = append(vp1.edges, ne)
+				vp2.edges = append(vp2.edges, ne)
+			}
+		}
+	}
+	return g
+}
+
+func vertexByPos(g *graph, n int) *vertex {
+	for _, v := range g.vertices {
+		if v.pos == n {
+			return v
+		}
+	}
+	return nil
+}
+
+func printgraph(g *graph) {
+	for _, v := range g.edges {
+		fmt.Println(v.first.pos, " ", v.second.pos)
+	}
+	for _, v := range g.vertices {
+		fmt.Println(v.pos)
+		for _, w := range v.edges {
+			fmt.Println(w.first.pos, " ", w.second.pos, " ")
+		}
+	}
+}
